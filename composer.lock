@@ -1,0 +1,70 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "e53bcee0e5ae2d4820355e8c13c38f43",
+    "packages": [
+        {
+            "name": "alex-lee/php-helper",
+            "version": "v1.1.5",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/898601566/php-helper.git",
+                "reference": "d7066aaefd441e8ef72b568ea8ed446e561564ac"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/898601566/php-helper/zipball/d7066aaefd441e8ef72b568ea8ed446e561564ac",
+                "reference": "d7066aaefd441e8ef72b568ea8ed446e561564ac",
+                "shasum": "",
+                "mirrors": [
+                    {
+                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
+                        "preferred": true
+                    }
+                ]
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Helper\\": "src/"
+                },
+                "files": [
+                    "src/helper.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "alexLee",
+                    "email": "898601566@qq.com"
+                }
+            ],
+            "description": "helper function",
+            "support": {
+                "issues": "https://github.com/898601566/php-helper/issues",
+                "source": "https://github.com/898601566/php-helper/tree/v1.1.5"
+            },
+            "time": "2021-04-02T09:59:38+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": {
+        "php": ">=7.4"
+    },
+    "platform-dev": [],
+    "plugin-api-version": "2.0.0"
+}

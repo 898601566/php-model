@@ -1,0 +1,19 @@
+{
+    "name": "alex-lee/php-model",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "alex-lee",
+            "email": "898601566@qq.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "alex-lee/php-helper": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "model\\": "src/"
+        }
+    }
+}
