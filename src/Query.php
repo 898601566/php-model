@@ -2,8 +2,6 @@
 
 namespace model;
 
-use model\Collection;
-use model\Model;
 use Helper\ArrayHelper;
 use Helper\StringHelper;
 
@@ -29,12 +27,15 @@ class Query
     private $group_str;
     private $bind;
     private $field;
+    private $model_class_name;
 
     public function __construct(Model $model)
     {
         $this->model = $model;
         $this->pk = $model->pk;
         $this->pdo_object = PDOOBJ::instance();
+        $rf = new \ReflectionObject($this->model);
+        $this->model_class_name = $rf->name;
         $this->_init();
     }
 
@@ -367,12 +368,13 @@ class Query
         $sttmnt = $this->formatBind($sttmnt, $this->bind);
         $sttmnt->execute();
         $res = $sttmnt->fetchAll();
-
-        $rf = new \ReflectionObject($this->model);
-        $class_name = $rf->name;
+        $model_class_name = $this->model_class_name;
         $ret = new Collection();
         foreach ($res as $key => $value) {
-            $model = new $class_name();
+            /**
+             * @var Model $model
+             */
+            $model = new $model_class_name();
             $ret->push($model->resultSet($value));
         }
         return $ret;
@@ -400,6 +402,12 @@ class Query
         return $res;
     }
 
+    /**
+     * @todo 主键查询
+     * @param array $id
+     *
+     * @return Model
+     */
     public function find($id = [])
     {
         $sql = $this->composeSql();
@@ -419,25 +427,25 @@ class Query
         return !empty($one) ? $one['count'] : 0;
     }
 
-    public function min($field = '*')
+    public function min($field)
     {
         $one = $this->field(["min($field)" => 'min'])->find();
         return !empty($one) ? $one['min'] : 0;
     }
 
-    public function max($field = '*')
+    public function max($field)
     {
         $one = $this->field(["max($field)" => 'max'])->find();
         return !empty($one) ? $one['max'] : 0;
     }
 
-    public function sum($field = '*')
+    public function sum($field)
     {
         $one = $this->field(["sum($field)" => 'sum'])->find();
         return !empty($one) ? $one['sum'] : 0;
     }
 
-    public function avg($field = '*')
+    public function avg($field)
     {
         $one = $this->field(["avg($field)" => 'avg'])->find();
         return !empty($one) ? $one['avg'] : 0;

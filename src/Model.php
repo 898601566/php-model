@@ -2,8 +2,6 @@
 
 namespace model;
 
-use model\Query;
-
 /**
  * @mixin Query
  */
@@ -12,7 +10,8 @@ class Model implements \ArrayAccess
 
     protected static $queryInstance;
 
-    protected static $data = [];
+    protected $data = [];
+    public $relation = [];
     public $pk = NULL;
 
     public function __construct()
@@ -119,12 +118,14 @@ class Model implements \ArrayAccess
 
     protected function getAttr($name)
     {
-        return $this->$name;
+        $data = &$this->data;
+        return isset($data[$name]) ? $data[$name] : NULL;
     }
 
     protected function setAttr($name, $value)
     {
-        $this->$name = $value;
+        $data = &$this->data;
+        $data[$name] = $value;
     }
 
     public function __call($method, $args)
@@ -162,11 +163,6 @@ class Model implements \ArrayAccess
     public function resultSet($data)
     {
         $this->data = $data;
-        if (!empty($data)) {
-            foreach ($data as $key => $value) {
-                $this->$key = $value;
-            }
-        }
         return $this;
     }
 
@@ -180,6 +176,12 @@ class Model implements \ArrayAccess
 
     public function toArray()
     {
-        return $this->data;
+        $data = $this->data;
+        foreach ($this->relation as $key => $value) {
+            if (!empty($value)) {
+                $data[$key] = $value->toArray();
+            }
+        }
+        return $data;
     }
 }
