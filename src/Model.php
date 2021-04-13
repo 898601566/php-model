@@ -2,6 +2,9 @@
 
 namespace model;
 
+use model\relation\HasMany;
+use model\relation\HasOne;
+
 /**
  * @mixin Query
  */
@@ -174,6 +177,10 @@ class Model implements \ArrayAccess
         return !empty($this->data) ? FALSE : TRUE;
     }
 
+    /**
+     * @todo hidden append visible
+     * @return array
+     */
     public function toArray()
     {
         $data = $this->data;
@@ -183,5 +190,31 @@ class Model implements \ArrayAccess
             }
         }
         return $data;
+    }
+
+    /**
+     * 一对一绑定
+     * @param string $className
+     * @param string $foreignKey
+     * @param string $localKey
+     *
+     * @return HasOne
+     */
+    public function hasOne(string $className, string $foreignKey,string $localKey)
+    {
+        return new HasOne($this, $className, $foreignKey, $localKey);
+    }
+
+    /**
+     * 一对多绑定
+     * @param string $className
+     * @param string $foreignKey
+     * @param string $localKey
+     *
+     * @return HasMany
+     */
+    public function hasMany(string $className, string $foreignKey,string $localKey)
+    {
+        return new HasMany($this, $className, $foreignKey, $localKey);
     }
 }

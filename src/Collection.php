@@ -597,45 +597,52 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
      */
     public function load($relation, $closure = NULL)
     {
-        //遍历数组和处理单项数据
-        if (!empty($relation) && is_array($relation)) {
-            foreach ($relation as $key => $value) {
-                //闭包调用和普通调用
-                if (!empty($value instanceof \Closure)) {
-                    $this->load($key, $value);
-                } else {
-                    $this->load($value);
-                }
-            }
-        } else {
-            if (!$this->isEmpty()) {
-                $item = current($this->items);
-                $class_name = $item->$relation()[0];
-                $foreign_field = $item->$relation()[1];
-                $local_field = $item->$relation()[2];
-                $values = $this->column($local_field);
-                /**
-                 * @var  $obj Model
-                 */
-                $obj = new $class_name();
-                //关联条件限定
-                $query = $obj->where($foreign_field, 'in', $values);
-                //闭包调用
-                if (!empty($closure) && $closure instanceof \Closure) {
-                    $closure($query);
-                }
-                $ret = $query->select();
-                //源数据添加关联数据
-                foreach ($this->items as $key => $value) {
-                    $collection = new Collection();
-                    foreach ($ret as $key2 => $value2) {
-                        if ($value2[$foreign_field] == $value[$local_field]) {
-                            $collection->push($value2);
-                        }
+        if (!empty($relation)) {
+            return FALSE;
+        }
+        switch (TRUE) {
+            case is_array($relation):
+                //处理数组
+                foreach ($relation as $key => $value) {
+                    //闭包调用和普通调用
+                    if (!empty($value instanceof \Closure)) {
+                        $this->load($key, $value);
+                    } else {
+                        $this->load($value);
                     }
-                    $this->items[$key]->relation[$class_name] = $collection;
                 }
-            }
+                break;
+            default:
+                if (!$this->isEmpty()) {
+                    $item = current($this->items);
+                    $class_name = $item->$relation()[0];
+                    $foreign_field = $item->$relation()[1];
+                    $local_field = $item->$relation()[2];
+                    //主模型关联的字段值
+                    $local_values = array_column($this->toArray(), $local_field);
+                    /**
+                     * @var  $obj Model
+                     */
+                    $obj = new $class_name();
+                    //关联条件限定
+                    $query = $obj->where($foreign_field, 'in', $local_values);
+                    //闭包调用
+                    if (!empty($closure) && $closure instanceof \Closure) {
+                        $closure($query);
+                    }
+                    $ret = $query->select();
+                    //源数据添加关联数据
+                    foreach ($this->items as $key => $value) {
+                        $collection = new Collection();
+                        foreach ($ret as $key2 => $value2) {
+                            if ($value2[$foreign_field] == $value[$local_field]) {
+                                $collection->push($value2);
+                            }
+                        }
+                        $this->items[$key]->relation[$class_name] = $collection;
+                    }
+                }
+                break;
         }
         return $this;
     }

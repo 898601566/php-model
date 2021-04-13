@@ -58,7 +58,6 @@ class Item extends Model
      * @var string
      */
     protected $table = 'item';
-
     /**
      * 搜索功能，因为Sql父类里面没有现成的like搜索，
      * 所以需要自己写SQL语句，对数据库的操作应该都放
