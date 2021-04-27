@@ -627,4 +627,5 @@ class Query
         $this->pdo_object->rollBack();
     }
 
+
 }

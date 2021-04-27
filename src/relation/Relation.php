@@ -32,7 +32,25 @@ abstract class Relation
 
     public function __call($method, $args)
     {
-        $res = call_user_func_array([$this->query, $method], $args);
-        return $res;
+        $this->query = call_user_func_array([$this->query, $method], $args);
+        return $this;
     }
+    /**
+     * @param $local_values
+     * @param $closure
+     *
+     * @return mixed
+     */
+    public function relationResult($local_values, $closure)
+    {
+        //关联条件限定
+        $this->where($this->foreignKey, 'in', $local_values);
+        //闭包调用
+        if (!empty($closure) && $closure instanceof \Closure) {
+            $closure($this);
+        }
+        $ret = $this->select();
+        return $this->query;
+    }
+
 }

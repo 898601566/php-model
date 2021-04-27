@@ -80,11 +80,12 @@ class Item extends Model
 
     public function item2()
     {
-        return  $this->hasMany(Item::class, 'id', 'id');
+        return  $this->hasOne(Item::class, 'id', 'id');
     }
     public function page()
     {
-        return $this->hasMany(Page::class, 'page_id', 'id');
+        return $this->hasMany(Page::class, 'type', 'id')
+                    ->where('page_id','=',14);
     }
 
 }
@@ -93,6 +94,6 @@ class Item extends Model
 $item = new Item();
 $res = $item->where('id', '=', 1)
             ->select();
-$res->load('page');
+$res->load(['page','item2']);
 sdump($res->toArray(),
     $item->getLastSql());

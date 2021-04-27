@@ -16,6 +16,8 @@ use ArrayIterator;
 use Countable;
 use IteratorAggregate;
 use JsonSerializable;
+use model\relation\HasMany;
+use model\relation\HasOne;
 use model\relation\Relation;
 use phpDocumentor\Reflection\Types\Mixed_;
 
@@ -588,6 +590,19 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         return (array)$items;
     }
 
+    public function loadArray($relation, $closure = NULL)
+    {
+        //处理数组
+        foreach ($relation as $key => $value) {
+            //闭包调用和普通调用
+            if (!empty($value instanceof \Closure)) {
+                $this->load($key, $value);
+            } else {
+                $this->load($value);
+            }
+        }
+    }
+
     /**
      * 加载relation
      *
@@ -603,48 +618,43 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         }
         switch (TRUE) {
             case is_array($relation):
-                //处理数组
-                foreach ($relation as $key => $value) {
-                    //闭包调用和普通调用
-                    if (!empty($value instanceof \Closure)) {
-                        $this->load($key, $value);
-                    } else {
-                        $this->load($value);
-                    }
-                }
+                $this->loadArray($relation, $closure);
                 break;
             default:
 
                 if (!$this->isEmpty()) {
                     $item = current($this->items);
                     /**
-                     * @var  $relation_class Relation
+                     * @var  $relation_obj Relation 关系模型
                      */
-                    $relation_class = $item->$relation();
-                    $foreign_field = $relation_class->foreignKey;
-                    $local_field = $relation_class->localKey;
-                    //主模型关联的字段值
-                    $local_values = array_column($this->toArray(), $local_field);
+                    $relation_obj = $item->$relation();
                     /**
-                     * @var  $query Query
+                     * @var  $foreign_field string 外键字段
                      */
-                    //关联条件限定
-                    $query = $relation_class->query->where($foreign_field, 'in', $local_values);
-                    //闭包调用
-                    if (!empty($closure) && $closure instanceof \Closure) {
-                        $closure($query);
-                    }
-                    $ret = $query->select();
-
+                    $foreign_field = $relation_obj->foreignKey;
+                    /**
+                     * @var  $local_field string 主键
+                     */
+                    $local_field = $relation_obj->localKey;
+                    /**
+                     * @var  $local_values string 主键字段对应的值
+                     */
+                    $local_values = array_column($this->toArray(), $local_field);
+                    $relationResult = $relation_obj->relationResult($local_values, $closure);
                     //源数据添加关联数据
                     foreach ($this->items as $key => $value) {
                         $collection = new Collection();
-                        foreach ($ret as $key2 => $value2) {
+                        foreach ($relationResult as $key2 => $value2) {
                             if ($value2[$foreign_field] == $value[$local_field]) {
                                 $collection->push($value2);
                             }
                         }
-                        $this->items[$key]->relation[$relation] = $collection;
+                        if ($relation_obj instanceof HasMany) {
+                            $this->items[$key]->relation[$relation] = $collection;
+                        }
+                        if ($relation_obj instanceof HasOne) {
+                            $this->items[$key]->relation[$relation] = $collection[0];
+                        }
                     }
                 }
                 break;

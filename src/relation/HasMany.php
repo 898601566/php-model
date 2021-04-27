@@ -17,14 +17,7 @@ class HasMany extends Relation
     {
         parent::__construct($parent, $model, $foreignKey, $localKey);
     }
-//    public function relationData(){
-//        $obj = new $this->model();
-//        //关联条件限定
-//        $query = $obj->where($foreign_field, 'in', $local_values);
-//        //闭包调用
-//        if (!empty($closure) && $closure instanceof \Closure) {
-//            $closure($query);
-//        }
-//        $ret = $query->select();
-//    }
+
+
+
 }
