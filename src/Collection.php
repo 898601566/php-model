@@ -16,6 +16,7 @@ use ArrayIterator;
 use Countable;
 use IteratorAggregate;
 use JsonSerializable;
+use model\relation\Relation;
 use phpDocumentor\Reflection\Types\Mixed_;
 
 class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
@@ -597,7 +598,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
      */
     public function load($relation, $closure = NULL)
     {
-        if (!empty($relation)) {
+        if (empty($relation)) {
             return FALSE;
         }
         switch (TRUE) {
@@ -613,24 +614,28 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
                 }
                 break;
             default:
+
                 if (!$this->isEmpty()) {
                     $item = current($this->items);
-                    $class_name = $item->$relation()[0];
-                    $foreign_field = $item->$relation()[1];
-                    $local_field = $item->$relation()[2];
+                    /**
+                     * @var  $relation_class Relation
+                     */
+                    $relation_class = $item->$relation();
+                    $foreign_field = $relation_class->foreignKey;
+                    $local_field = $relation_class->localKey;
                     //主模型关联的字段值
                     $local_values = array_column($this->toArray(), $local_field);
                     /**
-                     * @var  $obj Model
+                     * @var  $query Query
                      */
-                    $obj = new $class_name();
                     //关联条件限定
-                    $query = $obj->where($foreign_field, 'in', $local_values);
+                    $query = $relation_class->query->where($foreign_field, 'in', $local_values);
                     //闭包调用
                     if (!empty($closure) && $closure instanceof \Closure) {
                         $closure($query);
                     }
                     $ret = $query->select();
+
                     //源数据添加关联数据
                     foreach ($this->items as $key => $value) {
                         $collection = new Collection();
@@ -639,7 +644,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
                                 $collection->push($value2);
                             }
                         }
-                        $this->items[$key]->relation[$class_name] = $collection;
+                        $this->items[$key]->relation[$relation] = $collection;
                     }
                 }
                 break;

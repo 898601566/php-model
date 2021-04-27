@@ -11,27 +11,16 @@ use model\relation\HasOne;
 class Model implements \ArrayAccess
 {
 
-    protected static $queryInstance;
 
     protected $data = [];
     public $relation = [];
     public $pk = NULL;
+    public $table = NULL;
+    public $queryInstance = NULL;
 
     public function __construct()
     {
-        $queryInstance = $this->getQueryInstance();
-        // 获取数据库表名
-        if (!$this->table) {
-            // 获取模型类名称
-            $model_name = get_class($this);
-            // 删除类名最后的 Model 字符
-            if (FALSE == strpos($model_name, 'Model')) {
-                $model_name = substr($model_name, 0, -5);
-            }
-            // 数据库表名与类名一致
-            $this->table = strtolower($model_name);
-        }
-        $queryInstance->table = strtolower($this->table);
+        $queryInstance = $this->getQueryInstance($this);
     }
 
     /**
@@ -135,15 +124,13 @@ class Model implements \ArrayAccess
     {
         $queryInstance = $this->getQueryInstance();
         $res = call_user_func_array([$queryInstance, $method], $args);
-        static::$queryInstance = NULL;
         return $res;
     }
 
     public static function __callStatic($method, $args)
     {
-        $queryInstance = (static::instance())->getQueryInstance();
+        $queryInstance = (new static())->getQueryInstance();
         $res = call_user_func_array([$queryInstance, $method], $args);
-        static::$queryInstance = NULL;
         return $res;
     }
 
@@ -153,10 +140,22 @@ class Model implements \ArrayAccess
      */
     public function getQueryInstance(): Query
     {
-        if (empty(static::$queryInstance)) {
-            static::$queryInstance = new Query($this);
+        if (empty($this->queryInstance)) {
+            // 获取数据库表名
+            if (empty($this->table)) {
+                // 获取模型类名称
+                $model_name = get_class($this);
+                // 删除类名最后的 Model 字符
+                if (strpos($model_name, 'Model')) {
+                    $model_name = substr($model_name, 0, -5);
+                }
+                // 数据库表名与类名一致
+                $this->table = strtolower($model_name);
+            }
+            $this->queryInstance = new Query($this);
         }
-        return static::$queryInstance;
+        return $this->queryInstance;
+
     }
 
 
@@ -178,8 +177,8 @@ class Model implements \ArrayAccess
     }
 
     /**
-     * @todo hidden append visible
      * @return array
+     * @todo hidden append visible
      */
     public function toArray()
     {
@@ -194,26 +193,28 @@ class Model implements \ArrayAccess
 
     /**
      * 一对一绑定
+     *
      * @param string $className
      * @param string $foreignKey
      * @param string $localKey
      *
      * @return HasOne
      */
-    public function hasOne(string $className, string $foreignKey,string $localKey)
+    public function hasOne(string $className, string $foreignKey, string $localKey)
     {
         return new HasOne($this, $className, $foreignKey, $localKey);
     }
 
     /**
      * 一对多绑定
+     *
      * @param string $className
      * @param string $foreignKey
      * @param string $localKey
      *
      * @return HasMany
      */
-    public function hasMany(string $className, string $foreignKey,string $localKey)
+    public function hasMany(string $className, string $foreignKey, string $localKey)
     {
         return new HasMany($this, $className, $foreignKey, $localKey);
     }

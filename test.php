@@ -42,7 +42,7 @@ class Page extends Model
      * 这里就是 item 表
      * @var string
      */
-    protected $table = 'page';
+    public $table = 'page';
     public $pk='page_id';
 }
 
@@ -57,7 +57,7 @@ class Item extends Model
      * 这里就是 item 表
      * @var string
      */
-    protected $table = 'item';
+//    public $table = 'item';
     /**
      * 搜索功能，因为Sql父类里面没有现成的like搜索，
      * 所以需要自己写SQL语句，对数据库的操作应该都放
@@ -67,6 +67,11 @@ class Item extends Model
      *
      * @return array 返回的数据
      */
+    public function __construct()
+    {
+        parent::__construct();
+    }
+
     public function search($keyword)
     {
         $res = static::where('item_name', "like", "%{$keyword}%")->select();
@@ -75,11 +80,11 @@ class Item extends Model
 
     public function item2()
     {
-        return [Item::class, 'id', 'id'];
+        return  $this->hasMany(Item::class, 'id', 'id');
     }
     public function page()
     {
-        return [Page::class, 'page_id', 'id'];
+        return $this->hasMany(Page::class, 'page_id', 'id');
     }
 
 }
@@ -88,6 +93,6 @@ class Item extends Model
 $item = new Item();
 $res = $item->where('id', '=', 1)
             ->select();
-$res->load(['page']);
+$res->load('page');
 sdump($res->toArray(),
     $item->getLastSql());

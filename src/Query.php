@@ -36,6 +36,7 @@ class Query
         $this->pdo_object = PDOOBJ::instance();
         $rf = new \ReflectionObject($this->model);
         $this->model_class_name = $rf->name;
+        $this->table = $model->table;
         $this->_init();
     }
 

@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e53bcee0e5ae2d4820355e8c13c38f43",
+    "content-hash": "d0eb5594d369b0d999188ce69b4f813d",
     "packages": [
         {
             "name": "alex-lee/php-helper",
-            "version": "v1.1.5",
+            "version": "v1.1.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/898601566/php-helper.git",
-                "reference": "d7066aaefd441e8ef72b568ea8ed446e561564ac"
+                "reference": "8d78c81eafe79696608b570dde775e93e2492cf9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/898601566/php-helper/zipball/d7066aaefd441e8ef72b568ea8ed446e561564ac",
-                "reference": "d7066aaefd441e8ef72b568ea8ed446e561564ac",
+                "url": "https://api.github.com/repos/898601566/php-helper/zipball/8d78c81eafe79696608b570dde775e93e2492cf9",
+                "reference": "8d78c81eafe79696608b570dde775e93e2492cf9",
                 "shasum": "",
                 "mirrors": [
                     {
@@ -27,7 +27,7 @@
                 ]
             },
             "require": {
-                "php": ">=7.4"
+                "php": ">=7.0"
             },
             "type": "library",
             "autoload": {
@@ -51,9 +51,9 @@
             "description": "helper function",
             "support": {
                 "issues": "https://github.com/898601566/php-helper/issues",
-                "source": "https://github.com/898601566/php-helper/tree/v1.1.5"
+                "source": "https://github.com/898601566/php-helper/tree/v1.1.8"
             },
-            "time": "2021-04-02T09:59:38+00:00"
+            "time": "2021-04-27T01:09:24+00:00"
         }
     ],
     "packages-dev": [],
@@ -63,7 +63,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=7.4"
+        "php": ">=7.0"
     },
     "platform-dev": [],
     "plugin-api-version": "2.0.0"
