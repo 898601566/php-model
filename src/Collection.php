@@ -19,7 +19,6 @@ use JsonSerializable;
 use model\relation\HasMany;
 use model\relation\HasOne;
 use model\relation\Relation;
-use phpDocumentor\Reflection\Types\Mixed_;
 
 class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
 {
