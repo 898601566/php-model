@@ -85,7 +85,7 @@ class Item extends Model
     public function page()
     {
         return $this->hasMany(Page::class, 'type', 'id')
-                    ->where('page_id','=',14);
+                    ->where('page_id','<=',100);
     }
 
 }
@@ -94,6 +94,19 @@ class Item extends Model
 $item = new Item();
 $res = $item->where('id', '=', 1)
             ->select();
-$res->load(['page','item2']);
-sdump($res->toArray(),
-    $item->getLastSql());
+$res->load(['page'=>function($query){
+    /**
+     * var $query \model\Query
+     */
+    $query->where('page_id', '=', 3);
+}, 'item2',
+]);
+$res2 = $item->where('id', '=', 2)
+             ->with(['page', 'item2'])
+             ->select();
+//$res2->load(['page', 'item2']);
+sdump($res2->toArray());
+sdump((new Item())->find(1));
+sdump($res->toArray(),$res2->toArray(),
+    $item->getSourceSql());
+

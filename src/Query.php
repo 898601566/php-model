@@ -28,6 +28,7 @@ class Query
     private $bind;
     private $field;
     private $model_class_name;
+    private $with_str;
 
     public function __construct(Model $model)
     {
@@ -58,7 +59,7 @@ class Query
     /**
      * 初始化
      */
-    public function _init(): void
+    public function _init()
     {
         $this->bind = [];
         $this->field = "*";
@@ -71,6 +72,7 @@ class Query
         $this->order_str = '';
         $this->limit_str = '';
         $this->group_str = '';
+        $this->with_str = "";
         $this->bind = [];
         $this->field = "*";
     }
@@ -102,7 +104,7 @@ class Query
 
         switch (TRUE) {
             case $field instanceof \Closure:
-                $this->whereSplicce(" ( ",'','AND');
+                $this->whereSplicce(" ( ", '', 'AND');
                 $field($this);
                 $this->whereSplicce(" ) ");
                 break;
@@ -131,7 +133,7 @@ class Query
                 }
                 break;
             default:
-                $this->whereSplicce($field,'','AND');
+                $this->whereSplicce($field, '', 'AND');
                 break;
         }
         return $this;
@@ -155,7 +157,7 @@ class Query
 
         switch (TRUE) {
             case $field instanceof \Closure:
-                $this->whereSplicce(" ( ",'','OR');
+                $this->whereSplicce(" ( ", '', 'OR');
                 $field($this);
                 $this->whereSplicce(" ) ");
                 break;
@@ -184,7 +186,7 @@ class Query
                 }
                 break;
             default:
-                $this->whereSplicce($field,'','OR');
+                $this->whereSplicce($field, '', 'OR');
                 break;
         }
         return $this;
@@ -228,7 +230,7 @@ class Query
      */
     public function getBindKey($key, $prefix = ''): string
     {
-        $prefix = uniqid("cdt", FALSE).$prefix;
+        $prefix = uniqid("cdt", FALSE) . $prefix;
         $bind_key = str_replace('.', '__', "$key");
         $bind_key = str_replace('%', '_', $bind_key);
         return ":{$prefix}_{$bind_key}";
@@ -256,7 +258,7 @@ class Query
             //判断是否需要AND OR
             if (StringHelper::endsWith($trim_condition_str, 'WHERE')
                 || StringHelper::endsWith($trim_condition_str, '(')) {
-                    $this->condition_str .= " $condition_str ";
+                $this->condition_str .= " $condition_str ";
             } else {
                 $this->condition_str .= " {$type} $condition_str ";
             }
@@ -362,6 +364,10 @@ class Query
         return $this;
     }
 
+    /**
+     * 查询数组(单个查询最后还是会用到它)
+     * @return Collection
+     */
     public function select()
     {
         $sql = $this->composeSql();
@@ -378,6 +384,10 @@ class Query
             $model = new $model_class_name();
             $ret->push($model->resultSet($value));
         }
+        if (!empty($this->with_str)) {
+            $ret->load($this->with_str);
+        }
+        $this->clear();
         return $ret;
     }
 
@@ -404,21 +414,29 @@ class Query
     }
 
     /**
-     * @todo 主键查询
+     *  直接查询sql
+     */
+    public function with($with)
+    {
+        $this->with_str = $with;
+        return $this;
+    }
+
+    /**
      * @param array $id
      *
      * @return Model
+     * @todo 主键查询
      */
     public function find($id = [])
     {
-        $sql = $this->composeSql();
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $this->bind);
-        $sttmnt->execute();
-        $res = $sttmnt->fetch();
 
-        $res = $this->model->resultSet($res);
-        return $res;
+        if (!empty($id)) {
+            $this->where($this->model->pk, '=', 1);
+        }
+        $res = $this->limit(1)->select();
+        $one = $res[0];
+        return $one;
     }
 
 
@@ -451,6 +469,7 @@ class Query
         $one = $this->field(["avg($field)" => 'avg'])->find();
         return !empty($one) ? $one['avg'] : 0;
     }
+
     /**
      * 占位符绑定具体的变量值
      *
@@ -475,7 +494,7 @@ class Query
             $sttmnt->queryString,
             $this->bind,
         ];
-        $this->clear();
+
         return $sttmnt;
     }
 
