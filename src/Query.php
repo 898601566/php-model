@@ -527,6 +527,7 @@ class Query
         $sttmnt = $this->pdo_object->prepare($sql);
         $sttmnt = $this->formatBind($sttmnt);
 
+        $this->clear();
         if ($sttmnt->execute()) {
             return $this->pdo_object->lastInsertId();
         }
@@ -556,7 +557,7 @@ class Query
         $sttmnt = $this->pdo_object->prepare($sql);
         $sttmnt = $this->formatBind($sttmnt);
         $sttmnt->execute();
-
+        $this->clear();
         return $sttmnt->rowCount();
     }
 
@@ -618,8 +619,24 @@ class Query
         $this->addBind([$this->pk => $id]);
         $sttmnt = $this->formatBind($sttmnt);
         $sttmnt->execute();
-
+        $this->clear();
         return $sttmnt->rowCount();
+    }
+
+    /**
+     * 开始事务
+     */
+    public function transaction(callable $callback)
+    {
+        $this->pdo_object->beginTransaction();
+        try {
+            call_user_func($callback);
+        }
+        catch (\Exception $exception) {
+            $this->pdo_object->rollBack();
+            throw $exception;
+        }
+        $this->pdo_object->commit();
     }
 
     /**

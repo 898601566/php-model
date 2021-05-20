@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "alex-lee/php-helper",
-            "version": "v1.1.8",
+            "version": "v1.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/898601566/php-helper.git",
-                "reference": "8d78c81eafe79696608b570dde775e93e2492cf9"
+                "reference": "1a94387600dd9ce1b1760f96a977513edc940b9e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/898601566/php-helper/zipball/8d78c81eafe79696608b570dde775e93e2492cf9",
-                "reference": "8d78c81eafe79696608b570dde775e93e2492cf9",
+                "url": "https://api.github.com/repos/898601566/php-helper/zipball/1a94387600dd9ce1b1760f96a977513edc940b9e",
+                "reference": "1a94387600dd9ce1b1760f96a977513edc940b9e",
                 "shasum": "",
                 "mirrors": [
                     {
@@ -51,9 +51,9 @@
             "description": "helper function",
             "support": {
                 "issues": "https://github.com/898601566/php-helper/issues",
-                "source": "https://github.com/898601566/php-helper/tree/v1.1.8"
+                "source": "https://github.com/898601566/php-helper/tree/v1.2"
             },
-            "time": "2021-04-27T01:09:24+00:00"
+            "time": "2021-05-19T09:26:09+00:00"
         }
     ],
     "packages-dev": [],

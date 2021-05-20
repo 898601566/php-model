@@ -43,7 +43,7 @@ class Page extends Model
      * @var string
      */
     public $table = 'page';
-    public $pk='page_id';
+    public $pk = 'page_id';
 }
 
 /**
@@ -80,33 +80,38 @@ class Item extends Model
 
     public function item2()
     {
-        return  $this->hasOne(Item::class, 'id', 'id');
+        return $this->hasOne(Item::class, 'id', 'id');
     }
+
     public function page()
     {
         return $this->hasMany(Page::class, 'type', 'id')
-                    ->where('page_id','<=',100);
+                    ->where('page_id', '<=', 100);
     }
 
 }
 
-
 $item = new Item();
-$res = $item->where('id', '=', 1)
-            ->select();
-$res->load(['page'=>function($query){
-    /**
-     * var $query \model\Query
-     */
-    $query->where('page_id', '=', 3);
-}, 'item2',
-]);
-$res2 = $item->where('id', '=', 2)
-             ->with(['page', 'item2'])
-             ->select();
+$res2 = null;
+$item->transaction(function () use ($item,&$res2) {
+    $res = $item->where('id', '=', 1)
+                ->select();
+    $res->load([
+        'page' => function ($query) {
+            /**
+             * var $query \model\Query
+             */
+            $query->where('page_id', '=', 3);
+        }, 'item2',
+    ]);
+    $res = $item->where('id', '=', '2')->update(['item_name' => '66666']);
+    $res2 = $item->where('id', '=', 2)
+                 ->with(['page', 'item2'])
+                 ->select();
+});
 //$res2->load(['page', 'item2']);
 sdump($res2->toArray());
-sdump((new Item())->find(1));
-sdump($res->toArray(),$res2->toArray(),
-    $item->getSourceSql());
+//sdump((new Item())->find(1));
+//sdump($res->toArray(), $res2->toArray(),
+//    $item->getSourceSql());
 
