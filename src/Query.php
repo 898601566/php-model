@@ -370,25 +370,30 @@ class Query
      */
     public function select()
     {
-        $sql = $this->composeSql();
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $this->bind);
-        $sttmnt->execute();
-        $res = $sttmnt->fetchAll();
-        $model_class_name = $this->model_class_name;
-        $ret = new Collection();
-        foreach ($res as $key => $value) {
-            /**
-             * @var Model $model
-             */
-            $model = new $model_class_name();
-            $ret->push($model->resultSet($value));
+        try {
+            $sql = $this->composeSql();
+            $sttmnt = $this->pdo_object->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $this->bind);
+            $sttmnt->execute();
+            $res = $sttmnt->fetchAll();
+            $model_class_name = $this->model_class_name;
+            $ret = new Collection();
+            foreach ($res as $key => $value) {
+                /**
+                 * @var Model $model
+                 */
+                $model = new $model_class_name();
+                $ret->push($model->resultSet($value));
+            }
+            if (!empty($this->with_str)) {
+                $ret->load($this->with_str);
+            }
+            $this->clear();
+            return $ret;
         }
-        if (!empty($this->with_str)) {
-            $ret->load($this->with_str);
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
         }
-        $this->clear();
-        return $ret;
     }
 
     /**
@@ -407,10 +412,15 @@ class Query
      */
     public function sql($sql)
     {
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $sttmnt->execute();
-        $res = $sttmnt->fetchAll();
-        return $res;
+        try {
+            $sttmnt = $this->pdo_object->prepare($sql);
+            $sttmnt->execute();
+            $res = $sttmnt->fetchAll();
+            return $res;
+        }
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**
@@ -550,15 +560,20 @@ class Query
      */
     public function update($data, $where = [])
     {
-        if (!empty($where)) {
-            $this->where($where);
+        try {
+            if (!empty($where)) {
+                $this->where($where);
+            }
+            $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
+            $sttmnt = $this->pdo_object->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt);
+            $sttmnt->execute();
+            $this->clear();
+            return $sttmnt->rowCount();
         }
-        $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt);
-        $sttmnt->execute();
-        $this->clear();
-        return $sttmnt->rowCount();
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**
@@ -614,13 +629,18 @@ class Query
      */
     public function delete($id)
     {
-        $sql = sprintf("delete from `%s` where `%s` = :%s", $this->table, $this->pk, $this->pk);
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $this->addBind([$this->pk => $id]);
-        $sttmnt = $this->formatBind($sttmnt);
-        $sttmnt->execute();
-        $this->clear();
-        return $sttmnt->rowCount();
+        try {
+            $sql = sprintf("delete from `%s` where `%s` = :%s", $this->table, $this->pk, $this->pk);
+            $sttmnt = $this->pdo_object->prepare($sql);
+            $this->addBind([$this->pk => $id]);
+            $sttmnt = $this->formatBind($sttmnt);
+            $sttmnt->execute();
+            $this->clear();
+            return $sttmnt->rowCount();
+        }
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**

@@ -8,26 +8,20 @@
     "packages": [
         {
             "name": "alex-lee/php-helper",
-            "version": "v1.2",
+            "version": "v1.2.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/898601566/php-helper.git",
-                "reference": "1a94387600dd9ce1b1760f96a977513edc940b9e"
+                "reference": "2305f84a8069c632fe81a552a66c7eca63cdddff"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/898601566/php-helper/zipball/1a94387600dd9ce1b1760f96a977513edc940b9e",
-                "reference": "1a94387600dd9ce1b1760f96a977513edc940b9e",
-                "shasum": "",
-                "mirrors": [
-                    {
-                        "url": "https://mirrors.aliyun.com/composer/dists/%package%/%reference%.%type%",
-                        "preferred": true
-                    }
-                ]
+                "url": "https://api.github.com/repos/898601566/php-helper/zipball/2305f84a8069c632fe81a552a66c7eca63cdddff",
+                "reference": "2305f84a8069c632fe81a552a66c7eca63cdddff",
+                "shasum": ""
             },
             "require": {
-                "php": ">=7.0"
+                "php": ">=7.2"
             },
             "type": "library",
             "autoload": {
@@ -51,9 +45,9 @@
             "description": "helper function",
             "support": {
                 "issues": "https://github.com/898601566/php-helper/issues",
-                "source": "https://github.com/898601566/php-helper/tree/v1.2"
+                "source": "https://github.com/898601566/php-helper/tree/v1.2.6"
             },
-            "time": "2021-05-19T09:26:09+00:00"
+            "time": "2021-07-14T09:50:49+00:00"
         }
     ],
     "packages-dev": [],
@@ -66,5 +60,5 @@
         "php": ">=7.0"
     },
     "platform-dev": [],
-    "plugin-api-version": "2.0.0"
+    "plugin-api-version": "2.1.0"
 }
