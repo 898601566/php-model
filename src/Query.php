@@ -109,8 +109,12 @@ class Query
                 $this->whereSplicce(" ) ");
                 break;
             case is_array($field):
-                foreach ($field as $value) {
-                    $this->where($value[0], $value[1], $value[2]);
+                foreach ($field as $key => $value) {
+                    if (is_array($value)) {
+                        $this->where($value[0], $value[1], $value[2]);
+                    } else {
+                        $this->where($key, '=', $value);
+                    }
                 }
                 break;
             case !empty($operate) && isset($condition):
@@ -574,6 +578,7 @@ class Query
 
     /**
      * 保存数据(如果数据已存在就更新,如果数据不存在就插入)
+     *
      * @param $data
      * @param array $where
      *
