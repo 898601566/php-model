@@ -587,7 +587,7 @@ class Query
     public function save($data, $where)
     {
         $res = $this->where($where)->select();
-        if (!empty($res)) {
+        if (!empty($res) && FALSE == $res->isEmpty()) {
             return $this->update($data, $where);
         } else {
             return $this->insert($data, $where);
