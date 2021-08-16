@@ -531,26 +531,21 @@ class Query
      *
      * @param type $data
      */
-    public function add($data)
-    {
-        $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsert($data));
-        $sttmnt = $this->pdo_object->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt);
-
-        $this->clear();
-        if ($sttmnt->execute()) {
-            return $this->pdo_object->lastInsertId();
-        }
-    }
-
-    public function create($data)
-    {
-        return $this->add($data);
-    }
-
     public function insert($data)
     {
-        return $this->add($data);
+        try {
+            $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsert($data));
+            $sttmnt = $this->pdo_object->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt);
+
+            $this->clear();
+            if ($sttmnt->execute()) {
+                return $this->pdo_object->lastInsertId();
+            }
+        }
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**
@@ -573,6 +568,24 @@ class Query
         }
         catch (\PDOException $exception) {
             exit($exception->getMessage());
+        }
+    }
+
+
+    /**
+     * 保存数据(如果数据已存在就更新,如果数据不存在就插入)
+     * @param $data
+     * @param array $where
+     *
+     * @return int|string|void
+     */
+    public function save($data, $where)
+    {
+        $res = $this->where($where)->select();
+        if (!empty($res)) {
+            return $this->update($data, $where);
+        } else {
+            return $this->insert($data, $where);
         }
     }
 
