@@ -318,6 +318,7 @@ class Query
     /**
      * 拼装排序条件，使用方式：
      * $this->order(['id DESC', 'title ASC', ...])->fetch();
+     * $this->order('id DESC,title ASC')->fetch();
      *
      * @param array $order 排序条件
      *
@@ -326,13 +327,15 @@ class Query
     public function order($order = [])
     {
         if ($order) {
-            $this->order_str .= ' ORDER BY ';
-            $this->order_str .= implode(',', $order);
+            if (is_array($order)) {
+                $this->order_str .= ' ORDER BY ';
+                $this->order_str .= implode(',', $order);
+            } else {
+                $this->order_str .= $order;
+            }
         }
-
         return $this;
     }
-
     /**
      * 分组
      *
