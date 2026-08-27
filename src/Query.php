@@ -5,59 +5,170 @@ namespace model;
 use Helper\ArrayHelper;
 use Helper\StringHelper;
 
+/**
+ * 查询构造器
+ * 负责拼装 SQL（字段 / WHERE / JOIN / 分组 / 排序 / 分页）并通过 PDO 预处理执行，
+ * 所有条件值均以命名占位符参数绑定，避免 SQL 注入。
+ *
+ * 一次查询完成后会自动 clear() 复位拼装状态，实例可复用发起下一次查询。
+ * 模型类通过 __call / __callStatic 代理到本类，故可写作：
+ *   Item::where('id', '=', 1)->order('id desc')->select();
+ */
 class Query
 {
-    // 数据库表名
-    protected $table;
     /**
+     * 数据库表名（来自绑定模型）
+     * @var string
+     */
+    protected $table;
+
+    /**
+     * PDO 连接实例（PDOOBJ 单例）
      * @var \PDO|null
      */
     protected $pdo_object;
 
+    /**
+     * 已执行 SQL 日志（占位符已替换为值，便于直观查看）
+     * @var array
+     */
     private static $sqls = [];
+
+    /**
+     * 已执行 SQL 原始日志 [ [SQL, 绑定参数], ... ]
+     * @var array
+     */
     private static $source_sql = [];
+
+    /**
+     * 绑定的模型实例
+     * @var Model
+     */
     private $model;
+
+    /**
+     * 数据库主键字段名
+     * @var string
+     */
     private $pk;
-    // WHERE和ORDER拼装后的条件
+
+    /**
+     * WHERE 拼装后的条件串（含 WHERE 关键字与 AND / OR 连接词）
+     * @var string
+     */
     private $condition_str;
+
+    /**
+     * JOIN 子句
+     * @var string
+     */
     private $join_str;
+
+    /**
+     * 表别名
+     * @var string
+     */
     private $alias_str;
+
+    /**
+     * ORDER BY 子句
+     * @var string
+     */
     private $order_str;
+
+    /**
+     * LIMIT 子句
+     * @var string
+     */
     private $limit_str;
+
+    /**
+     * GROUP BY 子句
+     * @var string
+     */
     private $group_str;
+
+    /**
+     * 参数绑定表 [占位符 => 值]
+     * @var array
+     */
     private $bind;
+
+    /**
+     * 查询字段（默认 *）
+     * @var string
+     */
     private $field;
+
+    /**
+     * 绑定的模型完整类名（包装查询结果行时使用）
+     * @var string
+     */
     private $model_class_name;
+
+    /**
+     * 预加载的关联定义（with 方法设置）
+     * @var array|string
+     */
     private $with_str;
 
+    /**
+     * 构造函数：绑定模型并初始化 PDO 连接与查询状态
+     *
+     * @param Model $model 绑定的模型实例（提供表名、主键、结果包装类）
+     */
     public function __construct(Model $model)
     {
         $this->model = $model;
         $this->pk = $model->pk;
+        //获取 PDO 单例连接
         $this->pdo_object = PDOOBJ::instance();
+        //反射获取模型完整类名，查询结果将包装为该类的实例
         $rf = new \ReflectionObject($this->model);
         $this->model_class_name = $rf->name;
         $this->table = $model->table;
         $this->_init();
     }
 
+    /**
+     * 魔术方法：以属性形式检测成员是否存在（仅对已声明属性生效）
+     *
+     * @param string $name 成员名
+     *
+     * @return boolean
+     */
     public function __isset($name)
     {
         return isset($this->$name);
     }
 
+    /**
+     * 魔术方法：以属性形式写入成员
+     *
+     * @param string $name  成员名
+     * @param mixed  $value 值
+     *
+     * @return void
+     */
     public function __set($name, $value)
     {
         $this->$name = $value;
     }
 
+    /**
+     * 魔术方法：以属性形式读取成员
+     *
+     * @param string $name 成员名
+     *
+     * @return mixed
+     */
     public function __get($name)
     {
         return $this->$name;
     }
 
     /**
-     * 初始化
+     * 初始化 / 复位查询拼装状态（字段、条件、绑定参数等恢复默认值）
      */
     public function _init()
     {
@@ -78,7 +189,10 @@ class Query
     }
 
     /**
-     * 清除搜索信息
+     * 清除查询信息：复位全部拼装状态，便于复用当前实例发起新查询
+     * 每次 select / insert / update / delete 执行后内部会自动调用
+     *
+     * @return void
      */
     public function clear()
     {
@@ -87,12 +201,20 @@ class Query
 
 
     /**
-     * 设置where条件
+     * 设置 where 条件（多个条件间用 AND 连接）
+     * 用法示例：
+     *   1. 三参数：   where('id', '=', 1) / where('id', 'in', [1, 2, 3])
+     *   2. 数组：     where([ ['id', '>', 3], ['status', '=', 1] ])
+     *                where(['status' => 1, 'type' => 2])  // 键值对默认等值
+     *   3. 闭包嵌套： where(function ($query) {
+     *                    $query->where('id', 'in', [1, 2])
+     *                          ->whereOr('status', '=', 2);
+     *                })                                     // 生成 ( ... ) 分组
+     *   4. 原生字符串：where('id > 10')                       // 值不经绑定，慎用
      *
-     * @param $where
-     * @param string $method
-     * @param string $value
-     *$field, $operate = null, $condition = null
+     * @param mixed  $field     字段名 / 数组条件 / 闭包 / 原生条件串
+     * @param string $operate   操作符（=、>、<、>=、<=、in、like 等）
+     * @param mixed  $condition 操作值（in 操作符时可传数组）
      *
      * @return $this
      */
@@ -123,6 +245,7 @@ class Query
                     case 'in':
                         //处理非数组的值
                         $condition = is_array($condition) ? $condition : [$condition];
+                        //为每个值生成独立占位符，拼成 field in (:a,:b,...) 形式
                         foreach ($condition as $condition2) {
                             $bind_key = $this->getBindKey($field);
                             $bind_keys[] = $bind_key;
@@ -144,12 +267,14 @@ class Query
     }
 
     /**
-     * 设置whereOr条件
+     * 设置 whereOr 条件（多个条件间用 OR 连接），参数格式与 where() 一致
+     * 用法示例：
+     *   whereOr('status', '=', 2)            // ... OR status = 2
+     *   whereOr(function ($query) { ... })   // ... OR ( ... ) 分组
      *
-     * @param $where
-     * @param string $method
-     * @param string $value
-     *$field, $operate = null, $condition = null
+     * @param mixed  $field     字段名 / 数组条件 / 闭包 / 原生条件串
+     * @param string $operate   操作符
+     * @param mixed  $condition 操作值
      *
      * @return $this
      */
@@ -176,6 +301,7 @@ class Query
                     case 'in':
                         //处理非数组的值
                         $condition = is_array($condition) ? $condition : [$condition];
+                        //为每个值生成独立占位符，拼成 field in (:a,:b,...) 形式
                         foreach ($condition as $condition2) {
                             $bind_key = $this->getBindKey($field);
                             $bind_keys[] = $bind_key;
@@ -197,11 +323,13 @@ class Query
     }
 
     /**
-     * 设置join条件
+     * 设置 join 条件
+     * 用法：join('user u', 'u.id = order.user_id', 'LEFT')
+     * 生成：LEFT join user u on u.id = order.user_id
      *
-     * @param string $join
-     * @param null $condition
-     * @param string $type
+     * @param string $join      关联的表名（可带别名）
+     * @param mixed  $condition ON 关联条件（原生表达式）
+     * @param string $type      连接类型：INNER / LEFT / RIGHT
      *
      * @return $this
      */
@@ -212,9 +340,10 @@ class Query
     }
 
     /**
-     * 别名
+     * 设置当前表的别名
+     * 用法：alias('o')->join('user u', 'u.id = o.user_id')
      *
-     * @param $alias
+     * @param string $alias 别名
      *
      * @return $this
      */
@@ -225,27 +354,35 @@ class Query
     }
 
     /**
-     * bind差异化
+     * 生成差异化的参数绑定占位符
+     * 以 uniqid 前缀保证同一字段多次条件（如同字段两个 where）占位符不冲突，
+     * 并把字段名中的 "."、"%" 替换为占位符中的合法字符。
+     * 例：getBindKey('id') => ":cdt5f1e2a3b4c5d6_id"
      *
-     * @param $key
-     * @param string $prefix
+     * @param string $key    字段名
+     * @param string $prefix 额外前缀
      *
-     * @return string
+     * @return string 命名占位符（以 : 开头）
      */
     public function getBindKey($key, $prefix = ''): string
     {
         $prefix = uniqid("cdt", FALSE) . $prefix;
+        //替换占位符中不合法的字符（. 和 %）
         $bind_key = str_replace('.', '__', "$key");
         $bind_key = str_replace('%', '_', $bind_key);
         return ":{$prefix}_{$bind_key}";
     }
 
     /**
-     * 拼接where
+     * 拼接 where 条件片段到条件串
+     * 规则：
+     * 1. 条件串尚无 WHERE 关键字时先补上；
+     * 2. 紧邻 WHERE 或 "(" 时直接拼接（首个条件 / 闭包分组起始），否则用 AND/OR 连接；
+     * 3. 携带的绑定参数一并注册到 $this->bind。
      *
-     * @param $condition_str
-     * @param array $bind
-     * @param string $type AND OR 或者不填
+     * @param string $condition_str 条件片段
+     * @param array  $bind          绑定参数 [占位符 => 值]
+     * @param string $type          连接词 AND / OR，首个条件时忽略
      *
      * @return $this
      */
@@ -266,6 +403,7 @@ class Query
             } else {
                 $this->condition_str .= " {$type} $condition_str ";
             }
+            //注册本片段的绑定参数
             if (!empty($bind)) {
                 $this->addBind($bind);
             }
@@ -274,9 +412,10 @@ class Query
     }
 
     /**
+     * 批量注册绑定参数到 $this->bind（可加统一前缀避免占位符重名）
      *
-     * @param $wherestr
-     * @param array $bind
+     * @param array  $bind   绑定参数 [占位符 => 值]
+     * @param string $prefix 占位符前缀
      *
      * @return $this
      */
@@ -290,9 +429,13 @@ class Query
     }
 
     /**
-     * 绑定field
+     * 设置查询字段
+     * 用法：
+     *   field('id, name')                  // 原生字符串
+     *   field(['count(*)' => 'count'])     // 键值对：字段 => 别名
+     *   field(['id', 'name'])              // 索引数组（值会作为别名输出，见实现）
      *
-     * @param $field 支持key-value的数组或原生字符串
+     * @param mixed $field 支持键值对数组或原生字符串
      *
      * @return $this
      */
@@ -317,10 +460,10 @@ class Query
 
     /**
      * 拼装排序条件，使用方式：
-     * $this->order(['id DESC', 'title ASC', ...])->fetch();
-     * $this->order('id DESC,title ASC')->fetch();
+     * order(['id DESC', 'title ASC', ...])->select();
+     * order('id DESC,title ASC')->select();
      *
-     * @param array $order 排序条件
+     * @param mixed $order 排序条件（数组或字符串）
      *
      * @return $this
      */
@@ -337,9 +480,10 @@ class Query
         return $this;
     }
     /**
-     * 分组
+     * 设置分组条件
+     * 用法：group('status') => GROUP BY status
      *
-     * @param $group
+     * @param string $group GROUP BY 字段表达式
      *
      * @return $this
      */
@@ -352,10 +496,12 @@ class Query
     }
 
     /**
-     * 分页
+     * 分页：按"页码 + 每页条数"换算为 LIMIT 偏移量
+     * 用法：limit(2, 20)  // 第 2 页、每页 20 条 => LIMIT 20,20
+     * 注意：$page 为空（0 / null）时直接输出 LIMIT $limit
      *
-     * @param int $page
-     * @param int $limit
+     * @param int $page  页码（从 1 开始）
+     * @param int $limit 每页条数
      *
      * @return $this
      */
@@ -372,17 +518,22 @@ class Query
     }
 
     /**
-     * 查询数组(单个查询最后还是会用到它)
-     * @return Collection
+     * 执行查询，返回结果集（单条 / 聚合查询最终都经由本方法）
+     * 流程：拼装 SQL -> 预处理 -> 绑定参数 -> 执行 -> 逐行包装为模型对象装入 Collection
+     *       -> 若设置过 with() 则批量加载关联 -> 复位查询状态
+     *
+     * @return Collection 元素为绑定模型的实例
      */
     public function select()
     {
         try {
             $sql = $this->composeSql();
+            //预处理并绑定参数后执行
             $sttmnt = $this->pdo_object->prepare($sql);
             $sttmnt = $this->formatBind($sttmnt, $this->bind);
             $sttmnt->execute();
             $res = $sttmnt->fetchAll();
+            //逐行包装为绑定模型的实例
             $model_class_name = $this->model_class_name;
             $ret = new Collection();
             foreach ($res as $key => $value) {
@@ -392,9 +543,11 @@ class Query
                 $model = new $model_class_name();
                 $ret->push($model->resultSet($value));
             }
+            //批量加载 with() 声明的关联，避免逐行查询（N+1）
             if (!empty($this->with_str)) {
                 $ret->load($this->with_str);
             }
+            //复位查询状态，实例可复用
             $this->clear();
             return $ret;
         }
@@ -404,7 +557,7 @@ class Query
     }
 
     /**
-     * 组合查询SQl
+     * 组合完整查询 SQL：select 字段 from `表` [WHERE][GROUP BY][ORDER BY][LIMIT]
      * @return string
      */
     public function composeSql()
@@ -415,7 +568,11 @@ class Query
     }
 
     /**
-     *  直接查询sql
+     * 直接执行原生 SQL 查询（不走参数绑定，勿拼接用户输入）
+     *
+     * @param string $sql 原生查询语句
+     *
+     * @return array 所有结果行（关联数组）
      */
     public function sql($sql)
     {
@@ -431,7 +588,12 @@ class Query
     }
 
     /**
-     *  直接查询sql
+     * 声明预加载关联（select 时按 foreignKey in (...) 批量加载，避免 N+1 查询）
+     * 用法：with(['page', 'item2'])
+     *
+     * @param array|string $with 关联方法名（load() 支持的格式均可）
+     *
+     * @return $this
      */
     public function with($with)
     {
@@ -440,10 +602,13 @@ class Query
     }
 
     /**
-     * @param array $id
+     * 查询单条记录（内部按 limit(1)->select() 取第一条）
+     * 传入主键值时按主键等值查询
      *
-     * @return Model
-     * @todo 主键查询
+     * @param mixed $id 主键值（可选）
+     *
+     * @return Model|null
+     * @todo 主键查询：当前实现硬编码 where(pk, '=', 1)，$id 未生效，待修复
      */
     public function find($id = [])
     {
@@ -457,30 +622,65 @@ class Query
     }
 
 
+    /**
+     * 统计数量（聚合查询，可与 where 等条件链式组合）
+     *
+     * @param string $field 统计字段，默认 *
+     *
+     * @return mixed 无结果时返回 0
+     */
     public function count($field = '*')
     {
         $one = $this->field(["count($field)" => 'count'])->find();
         return !empty($one) ? $one['count'] : 0;
     }
 
+    /**
+     * 最小值（聚合查询）
+     *
+     * @param string $field 字段名
+     *
+     * @return mixed 无结果时返回 0
+     */
     public function min($field)
     {
         $one = $this->field(["min($field)" => 'min'])->find();
         return !empty($one) ? $one['min'] : 0;
     }
 
+    /**
+     * 最大值（聚合查询）
+     *
+     * @param string $field 字段名
+     *
+     * @return mixed 无结果时返回 0
+     */
     public function max($field)
     {
         $one = $this->field(["max($field)" => 'max'])->find();
         return !empty($one) ? $one['max'] : 0;
     }
 
+    /**
+     * 求和（聚合查询）
+     *
+     * @param string $field 字段名
+     *
+     * @return mixed 无结果时返回 0
+     */
     public function sum($field)
     {
         $one = $this->field(["sum($field)" => 'sum'])->find();
         return !empty($one) ? $one['sum'] : 0;
     }
 
+    /**
+     * 平均值（聚合查询）
+     *
+     * @param string $field 字段名
+     *
+     * @return mixed 无结果时返回 0
+     */
     public function avg($field)
     {
         $one = $this->field(["avg($field)" => 'avg'])->find();
@@ -488,10 +688,12 @@ class Query
     }
 
     /**
-     * 占位符绑定具体的变量值
+     * 占位符绑定具体的变量值，并记录 SQL 日志
+     * 数字下标按 PDO 位置参数（从 1 开始）绑定，命名占位符自动补 ":"；
+     * 绑定后将占位符替换为值写入 $sqls（直观日志），原始 SQL 与参数写入 $source_sql。
      *
      * @param \PDOStatement $sttmnt 要绑定的PDOStatement对象
-     * @param array $binds 参数
+     * @param array $binds 参数，缺省使用 $this->bind
      *
      * @return \PDOStatement
      */
@@ -504,8 +706,10 @@ class Query
         foreach ($binds as $bind => $value) {
             $bind = is_int($bind) ? $bind + 1 : ':' . trim($bind, ':');
             $sttmnt->bindValue($bind, $value);
+            //日志用：占位符 => 带引号的值
             $binds[$bind] = "'$value'";
         }
+        //记录替换占位符后的 SQL，以及原始 SQL + 绑定参数
         static::$sqls[] = strtr($sttmnt->queryString, $binds);
         static::$source_sql[] = [
             $sttmnt->queryString,
@@ -515,18 +719,33 @@ class Query
         return $sttmnt;
     }
 
+    /**
+     * 获取最近一条已执行的 SQL（占位符已替换为值，仅用于调试查看）
+     *
+     * @return string
+     */
     public function getLastSql()
     {
 
         return ArrayHelper::last(static::$sqls);
     }
 
+    /**
+     * 获取全部已执行 SQL（占位符已替换为值）
+     *
+     * @return array
+     */
     public function getSqls()
     {
 
         return static::$sqls;
     }
 
+    /**
+     * 获取全部已执行的原始 SQL 与绑定参数，格式 [ [SQL, 参数数组], ... ]
+     *
+     * @return array
+     */
     public function getSourceSql()
     {
 
@@ -534,9 +753,11 @@ class Query
     }
 
     /**
-     * 新增数据
+     * 新增数据（字段与值全部参数绑定）
      *
-     * @param type $data
+     * @param array $data 待插入数据 [字段名 => 值]
+     *
+     * @return string 成功返回自增主键 ID
      */
     public function insert($data)
     {
@@ -557,8 +778,13 @@ class Query
 
     /**
      * 更新数据
+     * 用法：where('id', '=', 1)->update(['name' => 'new'])
+     *      或 update(['name' => 'new'], ['id' => 1])
      *
-     * @param type $data
+     * @param array $data  待更新数据 [字段名 => 值]
+     * @param array $where 可选条件（键值对或 where() 支持的数组格式）
+     *
+     * @return int 影响行数
      */
     public function update($data, $where = [])
     {
@@ -580,12 +806,14 @@ class Query
 
 
     /**
-     * 保存数据(如果数据已存在就更新,如果数据不存在就插入)
+     * 保存数据：按 $where 查询，记录存在则更新，不存在则插入
+     * 用法：save(['name' => 'new'], ['id' => 1])
      *
-     * @param $data
-     * @param array $where
+     * @param array $data  保存的数据 [字段名 => 值]
+     * @param array $where 判断记录是否存在的条件
      *
-     * @return int|string|void
+     * @return int|string 更新返回影响行数，插入返回自增主键 ID
+     * @todo 不存在分支调用 insert($data, $where) 多传了参数，待修复
      */
     public function save($data, $where)
     {
@@ -598,9 +826,13 @@ class Query
     }
 
     /**
-     * 将数组转换成插入格式的sql语句
+     * 将数组转换成插入格式的 SQL 片段
+     * 例：['name' => 'a', 'age' => 1] => ( `name`,`age` ) values ( :xx_name,:xx_age )
+     * 同时把值注册到绑定参数表
      *
-     * @param Array $data
+     * @param array $data 待插入数据
+     *
+     * @return string 插入片段（字段列表 + values 占位符列表）
      */
     private function formatInsert(array $data)
     {
@@ -621,11 +853,13 @@ class Query
     }
 
     /**
-     * 将数组转换成更新格式的sql语句
+     * 将数组转换成更新格式的 SQL 片段
+     * 例：['name' => 'a'] => `name` = :xx_name
+     * 同时把值注册到绑定参数表
      *
-     * @param type $data
+     * @param array $data 待更新数据
      *
-     * @return type
+     * @return string set 片段
      */
     private function formatUpdate($data)
     {
@@ -642,11 +876,14 @@ class Query
     }
 
     /**
-     * 根据条件主键删除
+     * 根据主键删除记录
+     * 用法：delete(3) => delete from `表` where `id` = :id
      *
-     * @param type $id
+     * @param mixed $id 主键值
      *
-     * @return type
+     * @return int 影响行数
+     * @todo 删除固定使用 $this->pk（当前被 _init() 重置为 'id'），
+     *       模型自定义主键未生效，待修复
      */
     public function delete($id)
     {
@@ -665,7 +902,13 @@ class Query
     }
 
     /**
-     * 开始事务
+     * 闭包式事务：回调执行成功自动提交，抛出异常自动回滚并重新抛出
+     * 用法：Item::transaction(function () { ... });
+     *
+     * @param callable $callback 事务内执行的操作
+     *
+     * @return void
+     * @throws \Exception 回调抛出的异常
      */
     public function transaction(callable $callback)
     {
@@ -681,7 +924,7 @@ class Query
     }
 
     /**
-     * 开始事务
+     * 手动开启事务（配合 commit / roolback 使用）
      */
     public function beginTransaction()
     {
@@ -689,7 +932,7 @@ class Query
     }
 
     /**
-     * 提交事务
+     * 手动提交事务
      */
     public function commit()
     {
@@ -697,7 +940,8 @@ class Query
     }
 
     /**
-     * 回滚
+     * 手动回滚事务
+     * 注：方法名 roolback 为历史拼写，为保持兼容保留
      */
     public function roolback()
     {

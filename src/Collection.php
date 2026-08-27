@@ -20,6 +20,12 @@ use model\relation\HasMany;
 use model\relation\HasOne;
 use model\relation\Relation;
 
+/**
+ * 数据集类：查询结果的容器（元素通常为 Model 实例）
+ * 实现数组式访问（ArrayAccess）、计数（Countable）、遍历（IteratorAggregate）
+ * 与 JSON 序列化（JsonSerializable），并提供链式数组操作与内存中过滤排序。
+ * 通过 load() 可为集合内所有模型批量加载关联数据。
+ */
 class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSerializable
 {
     /**
@@ -28,11 +34,23 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
      */
     protected $items = [];
 
+    /**
+     * 构造函数：接受数组、Collection 作为初始数据
+     *
+     * @param mixed $items 初始数据
+     */
     public function __construct($items = [])
     {
         $this->items = $this->convertToArray($items);
     }
 
+    /**
+     * 快捷创建数据集实例
+     *
+     * @param mixed $items 初始数据
+     *
+     * @return static
+     */
     public static function make($items = [])
     {
         return new static($items);
@@ -48,6 +66,11 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         return empty($this->items);
     }
 
+    /**
+     * 转换为数组：元素为 Model / Collection 时递归转换
+     *
+     * @return array
+     */
     public function toArray()
     {
         return array_map(function ($value) {
@@ -55,6 +78,11 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         }, $this->items);
     }
 
+    /**
+     * 返回原始数据数组（不递归转换元素）
+     *
+     * @return array
+     */
     public function all()
     {
         return $this->items;
@@ -510,7 +538,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         return new static(array_slice($this->items, $offset, $length, $preserveKeys));
     }
 
-    // ArrayAccess
+    // ArrayAccess：支持 $collection[0] 形式访问元素
     public function offsetExists($offset)
     {
         return array_key_exists($offset, $this->items);
@@ -535,19 +563,19 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         unset($this->items[$offset]);
     }
 
-    //Countable
+    //Countable：支持 count($collection)
     public function count()
     {
         return count($this->items);
     }
 
-    //IteratorAggregate
+    //IteratorAggregate：支持 foreach ($collection as $item)
     public function getIterator()
     {
         return new ArrayIterator($this->items);
     }
 
-    //JsonSerializable
+    //JsonSerializable：支持 json_encode($collection)
     public function jsonSerialize()
     {
         return $this->toArray();
@@ -566,6 +594,11 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         return json_encode($this->toArray(), $options);
     }
 
+    /**
+     * 魔术方法：直接输出数据集时转为 JSON 字符串
+     *
+     * @return string
+     */
     public function __toString()
     {
         return $this->toJson();
@@ -589,6 +622,14 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
         return (array)$items;
     }
 
+    /**
+     * 按数组定义批量加载关联（值为关联名，或 [关联名 => 条件闭包]）
+     *
+     * @param array          $relation 关联定义数组
+     * @param \Closure|null  $closure  预留的统一闭包
+     *
+     * @return void
+     */
     public function loadArray($relation, $closure = NULL)
     {
         //处理数组
@@ -622,6 +663,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
             default:
 
                 if (!$this->isEmpty()) {
+                    //取第一个模型，调用其关联方法获得 Relation 对象（含外键/本地键定义）
                     $item = current($this->items);
                     /**
                      * @var  $relation_obj Relation 关系模型
@@ -638,9 +680,10 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
                     /**
                      * @var  $local_values string 主键字段对应的值
                      */
+                    //收集所有模型的本地键值，一次 in 查询取出全部关联数据（避免 N+1）
                     $local_values = array_column($this->toArray(), $local_field);
                     $relationResult = $relation_obj->relationResult($local_values, $closure);
-                    //源数据添加关联数据
+                    //源数据添加关联数据：按外键值把关联记录分组挂到各模型上
                     foreach ($this->items as $key => $value) {
                         $collection = new Collection();
                         foreach ($relationResult as $key2 => $value2) {
@@ -648,6 +691,7 @@ class Collection implements ArrayAccess, Countable, IteratorAggregate, JsonSeria
                                 $collection->push($value2);
                             }
                         }
+                        //一对多挂整个 Collection，一对一挂首条记录
                         if ($relation_obj instanceof HasMany) {
                             $this->items[$key]->relation[$relation] = $collection;
                         }
