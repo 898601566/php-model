@@ -7,7 +7,7 @@
 - **查询构造器**：`where` / `whereOr`（支持三参数、数组、`in`、闭包嵌套分组）、`join`、`alias`、`field`、`order`、`group`、`limit`
 - **CURD**：`select` / `insert` / `update` / `save`（存在则更新否则插入）/ `delete`（按主键）
 - **聚合查询**：`count` / `min` / `max` / `sum` / `avg`
-- **事务**：`transaction(callable)` 闭包式自动提交回滚，或 `beginTransaction` / `commit` / `roolback` 手动式
+- **事务**：`transaction(callable)` 闭包式自动提交回滚，或 `beginTransaction` / `commit` / `rollback` 手动式
 - **模型**：属性魔术读写、`ArrayAccess`、按类名自动推导表名（可用 `$table` / `$pk` 覆盖）
 - **数据集 Collection**：`map` / `filter` / `each` / `sort` / `where` / `column` 等链式数组操作，可直接 `json_encode`
 - **模型关联**：`hasOne` 一对一、`hasMany` 一对多（开发中），支持 `with()` 预加载与 `load()` 延迟加载，批量查询避免 N+1
@@ -139,7 +139,7 @@ try {
     Item::where('id', '=', 2)->update(['item_name' => '666']);
     Item::commit();
 } catch (\Exception $e) {
-    Item::roolback();
+    Item::rollback();
 }
 ```
 
@@ -156,9 +156,17 @@ src/
 
 ## 开发调试
 
-项目暂未使用 PHPUnit，`test.php` 为手工验证脚本（连接本地 MySQL 运行）：
+项目暂未使用 PHPUnit，`test.php` 为手工验证脚本。运行前先安装依赖并设置数据库密码环境变量：
 
 ```bash
+composer install
+
+# PowerShell
+$env:DB_PASSWORD = '数据库密码'
+php test.php
+
+# CMD / Linux
+set DB_PASSWORD=数据库密码   # Linux: export DB_PASSWORD=数据库密码
 php test.php
 ```
 

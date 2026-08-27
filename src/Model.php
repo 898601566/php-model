@@ -244,10 +244,10 @@ class Model implements \ArrayAccess
         if (empty($this->queryInstance)) {
             // 获取数据库表名
             if (empty($this->table)) {
-                // 获取模型类名称
+                // 获取模型类名称（含命名空间）
                 $model_name = get_class($this);
-                // 删除类名最后的 Model 字符
-                if (strpos($model_name, 'Model')) {
+                // 类名以 Model 结尾且不止 Model 本身时，截去末尾的 Model 后缀
+                if (strlen($model_name) > 5 && 'Model' === substr($model_name, -5)) {
                     $model_name = substr($model_name, 0, -5);
                 }
                 // 数据库表名与类名一致

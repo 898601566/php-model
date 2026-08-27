@@ -89,7 +89,6 @@ abstract class Relation
      * @param \Closure|null $closure      附加条件闭包（接收当前 Relation）
      *
      * @return mixed 关联查询结果集
-     * @todo 当前返回 $this->query，应返回查询结果 $ret，待修复
      */
     public function relationResult($local_values, $closure)
     {
@@ -99,8 +98,9 @@ abstract class Relation
         if (!empty($closure) && $closure instanceof \Closure) {
             $closure($this);
         }
+        //执行查询并返回结果集
         $ret = $this->select();
-        return $this->query;
+        return $ret;
     }
 
 }

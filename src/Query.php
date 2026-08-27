@@ -120,7 +120,8 @@ class Query
     public function __construct(Model $model)
     {
         $this->model = $model;
-        $this->pk = $model->pk;
+        //模型未定义主键时回退为 id
+        $this->pk = $model->pk ?: 'id';
         //获取 PDO 单例连接
         $this->pdo_object = PDOOBJ::instance();
         //反射获取模型完整类名，查询结果将包装为该类的实例
@@ -169,13 +170,12 @@ class Query
 
     /**
      * 初始化 / 复位查询拼装状态（字段、条件、绑定参数等恢复默认值）
+     * 注意：主键 $pk 在构造时从模型读取，不在此复位
      */
     public function _init()
     {
         $this->bind = [];
         $this->field = "*";
-        // 数据库主键
-        $this->pk = 'id';
         // WHERE和ORDER拼装后的条件
         $this->condition_str = '';
         $this->join_str = '';
@@ -603,18 +603,17 @@ class Query
 
     /**
      * 查询单条记录（内部按 limit(1)->select() 取第一条）
-     * 传入主键值时按主键等值查询
+     * 传入主键值时按主键等值查询（主键取绑定模型的 $pk，未定义时为 id）
      *
      * @param mixed $id 主键值（可选）
      *
      * @return Model|null
-     * @todo 主键查询：当前实现硬编码 where(pk, '=', 1)，$id 未生效，待修复
      */
-    public function find($id = [])
+    public function find($id = NULL)
     {
 
         if (!empty($id)) {
-            $this->where($this->model->pk, '=', 1);
+            $this->where($this->pk, '=', $id);
         }
         $res = $this->limit(1)->select();
         $one = $res[0];
@@ -813,7 +812,6 @@ class Query
      * @param array $where 判断记录是否存在的条件
      *
      * @return int|string 更新返回影响行数，插入返回自增主键 ID
-     * @todo 不存在分支调用 insert($data, $where) 多传了参数，待修复
      */
     public function save($data, $where)
     {
@@ -821,7 +819,7 @@ class Query
         if (!empty($res) && FALSE == $res->isEmpty()) {
             return $this->update($data, $where);
         } else {
-            return $this->insert($data, $where);
+            return $this->insert($data);
         }
     }
 
@@ -882,8 +880,6 @@ class Query
      * @param mixed $id 主键值
      *
      * @return int 影响行数
-     * @todo 删除固定使用 $this->pk（当前被 _init() 重置为 'id'），
-     *       模型自定义主键未生效，待修复
      */
     public function delete($id)
     {
@@ -941,11 +937,19 @@ class Query
 
     /**
      * 手动回滚事务
-     * 注：方法名 roolback 为历史拼写，为保持兼容保留
+     */
+    public function rollback()
+    {
+        $this->pdo_object->rollBack();
+    }
+
+    /**
+     * 手动回滚事务
+     * 注：方法名 roolback 为历史拼写，为兼容旧调用保留，等价于 rollback()
      */
     public function roolback()
     {
-        $this->pdo_object->rollBack();
+        $this->rollback();
     }
 
 
